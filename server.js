@@ -149,7 +149,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Đăng nhập
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
