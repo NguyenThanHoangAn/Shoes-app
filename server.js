@@ -162,9 +162,16 @@ app.post('/login', async (req, res) => {
       expiresIn: '1h',
     });
 
-    res.cookie('token', token, { httpOnly: true, maxAge: 3600000 });
-    res.json({ message: 'Login successful', token });
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', 
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
+      maxAge: 3600000, // 1 giờ
+    });
+
+    res.json({ message: 'Login successful', token }); 
   } catch (error) {
+    console.error('Error logging in:', error);
     res.status(500).json({ error: 'Error logging in: ' + error.message });
   }
 });
