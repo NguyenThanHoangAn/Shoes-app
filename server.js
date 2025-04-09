@@ -1,6 +1,5 @@
 const express = require('express');
 const app = express();
-const port = 5000;
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -8,15 +7,43 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-app.use(cors({ credentials: true, origin: 'http://localhost:3000' }));
+// Sử dụng port từ biến môi trường hoặc mặc định là 5000 (cho local development)
+const port = process.env.PORT || 5000;
+
+// Cấu hình CORS
+const allowedOrigins = [
+  'http://localhost:3000', 
+  process.env.FRONTEND_URL, 
+].filter(Boolean); 
+
+app.use(cors({
+  credentials: true,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+}));
 app.use(express.json());
 app.use(cookieParser());
 
+// Kiểm tra các biến môi trường
+const requiredEnvVars = ['MONGODB_USERNAME', 'MONGODB_PASSWORD', 'MONGODB_DATABASE', 'MONGODB_CLUSTER', 'JWT_SECRET'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Error: Missing environment variable ${envVar}`);
+    process.exit(1);
+  }
+}
+
+// Tạo chuỗi kết nối MongoDB từ các biến môi trường
+const MONGODB_URI = `mongodb+srv://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_CLUSTER}/${process.env.MONGODB_DATABASE}?retryWrites=true&w=majority&appName=Cluster0`;
+
+
 // Kết nối MongoDB Atlas
-mongoose.connect('mongodb+srv://nguyenan14112004:aXUKnE4pQEGMZhOd@cluster0.mzign.mongodb.net/shoes-app?retryWrites=true&w=majority&appName=Cluster0', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB Atlas');
     console.log('Using database:', mongoose.connection.db.databaseName);
@@ -35,7 +62,7 @@ const Counter = mongoose.model('Counter', CounterSchema);
 
 // Schema và Model cho Shoes
 const ShoeSchema = new mongoose.Schema({
-  id: { type: Number, unique: true }, // Đảm bảo id là duy nhất
+  id: { type: Number, unique: true },
   name: String,
   image: String,
   price: Number,
@@ -53,7 +80,7 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model('User', UserSchema);
 
 // Secret key cho JWT
-const JWT_SECRET = 'your_jwt_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware kiểm tra token
 const authenticateToken = (req, res, next) => {
@@ -87,7 +114,7 @@ const getNextSequenceValue = async (sequenceName) => {
       if (existingShoe) {
         console.log(`ID ${newId} already exists, trying next ID...`);
       } else {
-        break; // Thoát vòng lặp nếu id không trùng
+        break;
       }
     } while (true);
 
@@ -152,7 +179,6 @@ app.post('/logout', (req, res) => {
 app.get('/shoes', authenticateToken, async (req, res) => {
   try {
     console.log('Database used:', mongoose.connection.db.databaseName);
-    console.log('Collection used: Shoes');
     const shoes = await Shoe.find();
     res.json({ shoes });
   } catch (error) {
@@ -161,10 +187,11 @@ app.get('/shoes', authenticateToken, async (req, res) => {
   }
 });
 
+// Thêm giày mới (Nhóm 3-4: Add Data)
 app.post('/shoes', authenticateToken, async (req, res) => {
   try {
     const { name, image, price, type, color, attribute } = req.body;
-    const id = await getNextSequenceValue('shoe_id'); // Lấy id không trùng
+    const id = await getNextSequenceValue('shoe_id');
     const newShoe = new Shoe({ id, name, image, price, type, color, attribute });
     await newShoe.save();
     res.status(201).json({ message: 'Shoe added successfully', shoe: newShoe });
