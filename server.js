@@ -162,8 +162,14 @@ app.post('/login', async (req, res) => {
       expiresIn: '1h',
     });
 
-    res.cookie('token', token, { httpOnly: true, maxAge: 3600000 });
-    res.json({ message: 'Login successful', token });
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: true, // Bắt buộc vì deploy trên HTTPS
+      sameSite: 'none', // Cho phép cross-origin (frontend khác domain)
+      maxAge: 3600000, // 1 giờ
+    });
+
+    res.json({ message: 'Login successful' });
   } catch (error) {
     res.status(500).json({ error: 'Error logging in: ' + error.message });
   }
